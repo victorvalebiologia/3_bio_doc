@@ -1,9 +1,11 @@
 # Apresentação
 Vou dividir em alguns tópicos pra gente entender melhor, certo.
 
-- Diversidades das UCs;
-- Gráficos exploratórios;
 - Preparar o dados;
+- Acumulação;
+- Estimativa de Riqueza;
+- Diversidades das UCs;
+- Gráficos laterais;
 - Análise de variância.
 
 ## 1. Preparar os dados
@@ -11,7 +13,7 @@ Vou dividir em alguns tópicos pra gente entender melhor, certo.
 Aqui, é importante indicar qual pasta será usada para a análise. Primeiro precisamos indicar a pasta escrevendo o caminho dela dentro do seu computador. Algo como C://usuário.... dentro das aspas. Abaixo o meu:
 ```
 getwd()
-setwd("/home/user/Área de Trabalho/Bio/projeto_publ/2020_santa_teresa") #Mudança de diretório para pasta do projeto
+setwd("/home/user/Área de Trabalho/Bio/projeto_publ/2020_santa_teresa/R") #Mudança de diretório para pasta do projeto
 ```
 
 #### Pacotes e entradas de arquivos
@@ -43,14 +45,14 @@ Aqui vamos selecionar os dados. Primeiro vamos atribuir nossa tabela e denominar
 
 ```
 p2 <- planilhatotal
-p2 <- subset(p2,Ponto!="Fora") 
-
-p2 <- subset(p2,Coletor!="Yuri Luiz Reis Leite")
-```
-Aqui tiramos as células NA ou vazias das colunas de dia, ordem e espécie.
-```
+p2 <- subset(p2, Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro")
 p2 <- subset(p2, !is.na(Espécie))
 p2 <- subset(p2, !is.na(Ano))
+```
+Outras seleções:
+```
+p2 <- subset(p2,Coletor!="Yuri Luiz Reis Leite")
 
 p2 <- subset(p2, !is.na(Mês))
 p2 <- subset(p2, !is.na(Dia))
@@ -81,39 +83,199 @@ ggplot(Data, aes(x = Data, y = Família, colour = Ordem)) +
 #ggsave("1.Família/Data.png",width = 10, height = 6, dpi = 300)
 ```
 
-### Diversidade + Acumulação
-Fazer
+### Acumulação
+Vamos cacular os principais índices de dievrsidade aqui. Primeiro vamos selecionar oa dados que podem ser:
+- Gerais;
+- Avifauna;
+- Herpetofauna;
+- Mastofauna.
+Além de filtrar para apenas dados primários e espećies nativas.
 
+Agora a tabela para trabalhar.
+```
+p2<-Data
+p2 <- subset(p2, !is.na(Data))
+p2 <- subset(p2, !is.na(Espécie))
+acum<-reshape2::dcast(p2, Data ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
+acum=data.frame(acum, row.names=1)
+```
+E vamos gerar a curva:
+```
+acumplot<-specaccum(acum) #dados de acumulação
+plot(acumplot) #curva simples
+plot(acumplot,ci.type="poly",col="black",lwd=2,ci.lty=0,ci.col="lightgrey",ylab="Riqueza",
+     xlab="Dias de amostragem",main="Curva de acumulação de registros",las=1,font=1.5,font.lab=1.5,cex.lab=1,cex.axis=1) #curva clássica
+```
+Podemos fazer alguns tipos de gráficos de acumulação, veremos a seguir em três etapas, primeiro selecionando a tabela.
+```
+acum<-reshape2::dcast(p2, Data ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
+acum <- subset(acum, !is.na(Data))
+acum=data.frame(acum, row.names=1)
+```
+Segundo os cálculos
+```
+sp1<-specaccum(acum,method="rarefaction")
+sp2<-specaccum(acum,method="exact")
+sp3<-specaccum(acum,method="random")
+sp4<-specaccum(acum,method="collector")
+```
+Por fim os gráficos:
+```
+#par(mgp=c(1,1,0)) #exportar a imagem
+#png(filename="/home/user/Área de Trabalho/Bio/projeto_publ/2020_santa_teresa/R/acum2.png",width=800,height=600) #local e tmamanho
+par(mfrow=c(2,2)) 
+plot(sp1, ci.type="poly", col="black", lwd=2, ci.lty=0, ci.col="lightblue",xlab="Dias de amostragem",ylab="Rarefação")
+plot(sp2, ci.type="poly", col="black", lwd=2, ci.lty=0, ci.col="lightgrey",xlab="Dias de amostragem",ylab="Riqueza Esperada")
+plot(sp3, ci.type="poly", col="black", lwd=2, ci.lty=0, ci.col="yellow",xlab="Dias de amostragem",ylab="Sítios Aleatórios")
+plot(sp4, ci.type="poly", col="black", lwd=2, ci.lty=0, ci.col="lightblue",xlab="Dias de amostragem",ylab="Curva do Coletor")
+#par(mfrow=c(1,1)) #compilado de curvas
+dev.off()
+```
+Podemos focar também a curva do coletor e adicionar a abundância por dia. Primeiro vamos aos cálculos de diversidade e abundância.
+```
+sp4<-specaccum(acum,method="collector")
+spAbund<-rowSums(acum)
+```
+Agora preparamosa tabela:
+```
+acum<-reshape2::dcast(Data, Data ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
+acum <- subset(acum, !is.na(Data))
+p3<-data.frame(spAbund,sp4$sites,sp4$richness,acum)
+```
+E plotamos:
+```
+ggplot(p3, aes(x = Data, y = sp4.richness)) + 
+  geom_line(size=6, alpha=0.6, color="Gray") + #geom_line(aes(group = sp4.sites)) +
+  geom_point(aes(size=spAbund), alpha=0.3) +
+  scale_size_binned(range = c(.1, 24), name="Abundância de registros") +
+  #geom_text(aes(label = a$sp4.richness),col = 'black',size = 5) +
+  labs(title="Curva do coletor", subtitle="Riqueza e abundância por dia", y="Riqueza",x="Data", caption="",
+       color = "Diversidade", size = "Abundância de registros") +
+  theme(axis.title = element_text(size = 18),
+        axis.text = element_text(size = 14)) + 
+  scale_x_date(date_breaks = "130 months", date_labels = "%Y/%b") + 
+  scale_y_continuous(breaks = c(10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120)) +
+  theme_classic() 
+#ggsave("acum3.png",width = 14, height = 6, dpi = 300)
+```
+### Estimativa de riqueza
+Vamos também estimar a riqueza. Vamos selecionar a tabela. Podem ter duas variáveis:
+- Trilha;
+- Localidade;
+- Empresa;
+- Grupo;
 
-#### Riqueza Estimada
-Fazer
+Primeiro vamos foltrar e atribuir as datas:
 
-### Gráficos exploratórios:
-Agora vamos ver um gráfico marginal considerando abundância, vamos de pacotes:
 ```
-pacman::p_load(ggExtra::ggMarginal(), quietly = T) #não funciona
-pacman::p_load(ggExtra)
-library(ggExtra) #, quietly = T)
+p2 <- Data
+p2 <- subset(p2, !is.na(Data))
+p2 <- subset(p2, !is.na(Espécie))
 ```
-Agora o gŕafico marginal em histograma:
+Vamos cacular os principais índices de dievrsidade aqui. Primeiro vamos selecionar oa dados que podem ser:
+- Gerais;
+- Avifauna;
+- Herpetofauna;
+- Mastofauna.
+Além de filtrar para apenas dados primários e espećies nativas.
+
 ```
-p <- ggplot(p2, aes(x=Ano, y=Ordem)) + #gráfico
-  geom_point(size=1,alpha=0) + 
-  geom_boxplot(aes(colour=Coletor_tag)) + theme_classic()
-#theme(legend.position="bottom")
-p1 <- ggMarginal(p, type="histogram")
-p1
+p3<-reshape2::dcast(Data, Data ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
+p3 <- subset(p3, !is.na(Data))
+p3=data.frame(p3, row.names=1)
 ```
-Densidade
+Agora vamos estimar a riqueza considerando a localidade toda:
 ```
-p2 <- ggMarginal(p, type="density")
-p2
+pool<-specpool(p3)
+pool
 ```
-e Boxplot:
+E um gráfico:
 ```
-p3 <- ggMarginal(p, type="boxplot")
-p3
+pool <- poolaccum(p3)
+#summary(pool, display = "chao")
+plot(pool)
 ```
+Também podemos separar pelas varíaveis seguintes:
+- Localidade;
+- Trilha;
+- Classe.
+
+Precisamos fazer duas tabelas. 
+- Uma indicando a abundância de espécies por dia, denominada de p3;
+- Uma indicando a variável, denominada p4.
+- Lembrar de conferir a variável
+```
+#p3 <- subset(Data, Empresa == "XXX")
+p3<-reshape2::dcast(Data, Data + Distrito ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
+excluir <- c("Data", "Distrito")
+p3 <- p3[,!(names(p3)%in% excluir)]
+p4<-reshape2::dcast(Data, Data + Distrito ~ Classe, value.var = "Abundância",fun.aggregate = sum)
+```
+Agora a estimativa de riqueza por localidade.
+```
+pool<-specpool(p3, p4$Distrito) 
+pool
+boxplot(pool$chao) 
+```
+
+### Diversidade
+Aqui também podemos filtrar a tabela.
+- Gerais;
+- Avifauna;
+- Herpetofauna;
+- Mastofauna.
+Além de filtrar para apenas dados primários e espećies nativas.
+
+Agora vamos filtrar a tabela, ela pode ser por:
+- Classe;
+- Família;
+- Influência;
+- Empresa;
+- Localidade.
+```
+p2 <- planilhatotal
+p2 <- subset(p2,Distrito!="Identificar") 
+p2 <- subset(p2,Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro") 
+p2 <- subset(p2, !is.na(Espécie))
+p2 <- subset(p2, !is.na(Ano))
+p2 <- subset(p2, !is.na(Comunidade))
+
+local<-reshape2::dcast(p2, Família ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
+local=data.frame(local,row.names=1)
+```
+E vamos aos cálculos;
+```
+S <- specnumber(local) 
+spAbund <-rowSums(local) #abunância por faixa
+shannon <- diversity(local)
+J <- shannon/log(S) #Pielou
+simp <- diversity(local, "simpson")
+invsimp <- diversity(local, "inv")
+```
+E vamos plotar em gráfico, mas primeiro a tabela.
+```
+#p2 <- subset(p2,Comunidade!="Identificar") 
+local<-reshape2::dcast(p2, Família + Ordem ~ Espécie,value.var = "Abundância",fun.aggregate = sum)
+local<-data.frame(S, spAbund,local)
+```
+Gráfico é um de barras:
+```
+ggplot(local, aes(x = reorder(Família, S), y = S)) + 
+  geom_col(aes(weight = S, fill = Ordem), alpha = 0.7) + 
+  geom_point(aes(y = S, x = Família, size = spAbund, colour = Ordem)) +
+  geom_text(aes(y = S, x = Família, label = S), size=4, alpha= 1) +
+  labs(title="Riqueza e diversidade", subtitle="Diversidade", y="Riqueza", x="Família", caption="Dados primários",
+       fill = "Ordem", colour = "Ordem", size = "Abundância") +
+  scale_size_binned(range = c(.1, 18)) +
+  #scale_y_continuous(breaks = c(10, 20, 30, 40, 50, 60, 70, 80, 90, 100)) +
+  theme(axis.title = element_text(size = 18), 
+        axis.text = element_text(size = 14)) + 
+        coord_flip() + theme_classic() 
+#ggsave("fam.png",width = 9, height = 7, dpi = 600)
+```
+
+### Gráficos laterais
 Vamos a outro gráfico lateral:
 Primeiro o pacote. 
 ```
@@ -127,16 +289,16 @@ p2 <- subset(p2, !is.na(Ano))
 p2 <- subset(p2, !is.na(Coletor_tag))
 
 p4 <- p2 %>%
-  ggplot(aes(x = Ano, y = Classe, colour = Coletor_tag)) +
+  ggplot(aes(x = Ano, y = Coletor_tag, colour = Coletor_tag)) +
   geom_boxplot() +
   geom_smooth(aes(color = NULL), se=TRUE) +
-  geom_xsidedensity(aes(y = after_stat(scaled),
-    fill = Coletor_tag),alpha = 0.5,size = 1, position = "stack") +
+  geom_xsidedensity(aes(y = after_stat(scaled), 
+    fill = Coletor_tag), size = 1, position = "stack") + #alpha = 0.5,
   scale_color_tq() +
   scale_fill_tq() +
   theme_tq() +
-  labs(title = "Altitudinal distribution", subtitle = "",
-       x = "Altitude", y = "Species") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
+  labs(title = "Boxplot temporal para o coletor", subtitle = "Acumulação",
+       x = "Tempo", y = "Coletores") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
 plot(p4)
 #ggsave("overlap.png",width = 12, height = 8, dpi = 600)
 #geom_ysidedensity(aes(x = after_stat(density),
@@ -148,56 +310,79 @@ p2 <- planilhatotal
 p2 <- subset(p2, !is.na(Espécie))
 p2 <- subset(p2, !is.na(Ano))
 p2 <- subset(p2, !is.na(Coletor_tag))
+p2 <- subset(p2,Ordem!="Perissodactyla") 
 
 p4 <- p2 %>%
   ggplot(aes(x = Ano, y = Classe, colour = Coletor_tag)) +
   #geom_boxplot() +
   geom_smooth(aes(color = NULL), se=TRUE) +
   stat_density(aes(y = after_stat(scaled),
-    fill = Coletor_tag),alpha = 0.5,size = 1, position = "stack") +
+    fill = Coletor_tag),alpha = 1,size = 1, position = "stack") +
   scale_color_tq() +
   scale_fill_tq() +
   theme_tq() +
-  labs(title = "Altitudinal distribution", subtitle = "",
-       x = "Altitude", y = "Species") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
+  labs(title = "Boxplot temporal para o coletor", subtitle = "Acumulação",
+       x = "Tempo", y = "Coletores") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
 plot(p4)
+
+#ggsave("overlap2.png",width = 12, height = 8, dpi = 600)
+```
+Agora com as famílias:
+
+```
+p2 <- planilhatotal
+p2 <- subset(p2, !is.na(Espécie))
+p2 <- subset(p2, !is.na(Ano))
+p2 <- subset(p2, !is.na(Coletor_tag))
+p2 <- subset(p2,Ordem!="Perissodactyla") 
+
+p4 <- p2 %>%
+  ggplot(aes(x = Ano, y = Coletor_tag, Colour = Ordem, fill = Ordem)) +
+  geom_boxplot(aes(fill = Ordem)) +
+  geom_xsidedensity(aes(y = after_stat(scaled), 
+    fill = Ordem, colour = Ordem), size = 1, position = "stack") + #alpha = 0.5,
+  scale_color_tq() +
+  scale_fill_tq() +
+  theme_tq() +
+  labs(title = "Boxplot temporal para o coletor", subtitle = "Acumulação",
+       x = "Tempo", y = "Ordem") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
+plot(p4)
+#ggsave("ovfam.png",width = 12, height = 8, dpi = 600)
+#geom_ysidedensity(aes(x = after_stat(density),
+    #fill = Order),alpha = 0.5,size = 1, position = "stack") +
+```
+Agora um destque no gráfico lateral:
+```
+p2 <- planilhatotal
+p2 <- subset(p2, !is.na(Espécie))
+p2 <- subset(p2, !is.na(Ano))
+p2 <- subset(p2, !is.na(Coletor_tag))
+p2 <- subset(p2,Ordem!="Perissodactyla") 
+
+p4 <- p2 %>%
+  ggplot(aes(x = Ano, y = Classe, colour = Ordem)) +
+  #geom_boxplot() +
+  geom_smooth(aes(color = NULL), se=TRUE) +
+  stat_density(aes(y = after_stat(scaled),
+    fill = Ordem),alpha = 1,size = 1, position = "stack") +
+  scale_color_tq() +
+  scale_fill_tq() +
+  theme_tq() +
+  labs(title = "Boxplot temporal para o coletor", subtitle = "Acumulação",
+       x = "Tempo", y = "Ordem") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
+plot(p4)
+#ggsave("ovfam2.png",width = 12, height = 8, dpi = 600)
+#ggsave("overlap2.png",width = 12, height = 8, dpi = 600)
 ```
 
 
 
-Vamos adicionar a tabela nova:
-```
-pacman::p_load(openxlsx) 
-caminho.do.arquivo <- "/home/user/Área de Trabalho/Bio/projeto_publ/gradientealt.xlsx"
-dados.clip <- read.xlsx(caminho.do.arquivo, #local do arquivo
-                           sheet = 3, # em qual planilha estão os dados
-                           colNames = T, # as colunas dos dados possuem nomes?
-                           na.strings = "NA") # como estão identificados os dados omissos?
 
-head(dados.clip)
-```
-E vamos selecionar
 
-`dados.clip <- dados.clip[1:16, ]`
 
-Vamos ver em gráfico:
-```
-ggplot(dados.clip, aes(x = Shannon, y = Richness)) + #size colocar outro dado
-  geom_label_repel(aes(label = Locality), size=4, alpha= 0.7, #funciona no zoom
-                   box.padding   = 0.35, 
-                   point.padding = 0.75,
-                   segment.color = 'grey50') +
-  geom_point(aes(colour = Altitude.range, size = Sampling.Effort), alpha=0.6) +
-  facet_grid(.~dados.clip$Factor) + 
-  labs(title="Species richness, shannon diversity and sampling effort (trap-nights) by altitude for tratament groups", subtitle="", 
-       y="Richness",x="Shanon Index", caption="",
-       color = "Altitude Range",
-       size = "Sampling Effort") +
-  theme(axis.title = element_text(size = 18), axis.text = element_text(size = 14))+
-  theme_classic()
-  
-#ggsave("grupo.png",width = 9, height = 5, dpi = 600)
-```
+
+
+
 ### Gif
 
 pacman::p_load(gganimat,ggplot2,dplyr,gapminder,ggthemes,gifski,readr,tidyr,cargo, rustc)
