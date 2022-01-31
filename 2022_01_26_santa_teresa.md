@@ -49,20 +49,24 @@ p2 <- subset(p2, Ponto!="Fora")
 p2 <- subset(p2, OBS == "Dentro")
 p2 <- subset(p2, !is.na(Espécie))
 p2 <- subset(p2, !is.na(Ano))
+
+
+p2 <- subset(p2,Distrito!="Identificar") 
+p2 <- subset(p2,Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro") 
 ```
 Outras seleções:
 ```
 p2 <- subset(p2,Coletor!="Yuri Luiz Reis Leite")
-
-p2 <- subset(p2, !is.na(Mês))
-p2 <- subset(p2, !is.na(Dia))
-
 p2 <- subset(p2, !is.na(Ordem)) 
 ```
 #### Teste de plots
 Primeiro vamos configurar a data (alguns dados não tem dia e nem mês, não vai rolar).
 
 ```
+p2 <- subset(p2, !is.na(Mês))
+p2 <- subset(p2, !is.na(Dia))
+
 p3 <- p2 %>% 
   select(Ano, Mês, Dia) %>% 
   mutate(Data = make_date(Ano, Mês, Dia))
@@ -232,16 +236,23 @@ Agora vamos filtrar a tabela, ela pode ser por:
 - Influência;
 - Empresa;
 - Localidade.
+
+Para considerar apenas os registros de data completa trocar p2 por Data.
 ```
 p2 <- planilhatotal
+p2 <- subset(p2, Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro")
+p2 <- subset(p2, !is.na(Espécie))
+p2 <- subset(p2, !is.na(Ano))
+
+
 p2 <- subset(p2,Distrito!="Identificar") 
 p2 <- subset(p2,Ponto!="Fora") 
 p2 <- subset(p2, OBS == "Dentro") 
-p2 <- subset(p2, !is.na(Espécie))
-p2 <- subset(p2, !is.na(Ano))
+
 p2 <- subset(p2, !is.na(Comunidade))
 
-local<-reshape2::dcast(p2, Família ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
+local<-reshape2::dcast(p2, Distrito ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
 local=data.frame(local,row.names=1)
 ```
 E vamos aos cálculos;
@@ -527,7 +538,7 @@ Importante se atentar:
 - Relação de espécie (variável dependente);
 - #h0 = não variável/ F= diferença das médias / a variação de altitude média por espécie é de 1310m
 ```
-dicalt <- lm(p2$Ano ~ p2$Espécie, data = p2) 
+dicalt <- lm(Data$Data ~ p2$Espécie, data = Data) 
 anova(dicalt) 
 ```
 Dando valor de p siginificativo os dados são considerados variados. Para ver com mais detalhes:
@@ -540,7 +551,7 @@ Onde R = explicação (mais perto de 1 melhor) e p significativo, pelo menos um 
 
 E a variãncia para a assembléia de espécies:
 
-`summary(aov(p2$Ano ~ factor(p2$Espécie)))`
+`summary(aov(Data$Ano ~ factor(Data$Espécie)))`
 
 Também vamos ver a relação deles com a altitude. Primeiro os pacotes:
 ```
@@ -549,13 +560,13 @@ pacman::p_load(jtools, sandwich, lme4, ggstance)
 ```
 Agora o gráfico para as espécies.
 ```
-b<-glm(Ano ~ Ordem, data = p2)
+b<-glm(Ano ~ Ordem, data = Data)
 jtools::plot_summs(b)
 plot_summs(b, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
 ```
 E para os coletores (Coletor_tag) ou Comunidade/Distrito:
 ```
-fit <- lm(Ano ~ Distrito, data = p2) #some os primeiros de cada grupo
+fit <- lm(Ano ~ Ordem, data = Data) #some os primeiros de cada grupo
 summ(fit)
 effect_plot(fit, pred = Order, interval = TRUE, plot.points = TRUE) #não faz sentido
 plot_summs(fit, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
