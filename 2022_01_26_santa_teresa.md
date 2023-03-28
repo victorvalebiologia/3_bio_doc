@@ -50,7 +50,6 @@ p2 <- subset(p2, OBS == "Dentro")
 p2 <- subset(p2, !is.na(Espécie))
 p2 <- subset(p2, !is.na(Ano))
 
-
 p2 <- subset(p2,Distrito!="Identificar") 
 p2 <- subset(p2,Ponto!="Fora") 
 p2 <- subset(p2, OBS == "Dentro") 
@@ -72,6 +71,7 @@ p3 <- p2 %>%
   mutate(Data = make_date(Ano, Mês, Dia))
 
 Data <- data.frame(p2,p3)
+ 
 ```
 Um gráfico um pouco mais elaborado. Vamos plotar as espécies no eixo y e as altitudes no eixo x, com cores vamos diferenciar as UCs. 
 
@@ -149,9 +149,9 @@ p3<-data.frame(spAbund,sp4$sites,sp4$richness,acum)
 E plotamos:
 ```
 ggplot(p3, aes(x = Data, y = sp4.richness)) + 
-  geom_line(size=6, alpha=0.6, color="Gray") + #geom_line(aes(group = sp4.sites)) +
-  geom_point(aes(size=spAbund), alpha=0.3) +
-  scale_size_binned(range = c(.1, 24), name="Abundância de registros") +
+  geom_line(size=6, alpha=0.1) + #geom_line(aes(group = sp4.sites)) +
+  geom_point(aes(size=spAbund), alpha=0.2) +
+  scale_size_binned(range = c(.1, 18), name="Abundância de registros") +
   #geom_text(aes(label = a$sp4.richness),col = 'black',size = 5) +
   labs(title="Curva do coletor", subtitle="Riqueza e abundância por dia", y="Riqueza",x="Data", caption="",
        color = "Diversidade", size = "Abundância de registros") +
@@ -219,6 +219,7 @@ Agora a estimativa de riqueza por localidade.
 ```
 pool<-specpool(p3, p4$Distrito) 
 pool
+plot(pool)
 boxplot(pool$chao) 
 ```
 
@@ -252,7 +253,7 @@ p2 <- subset(p2, OBS == "Dentro")
 
 p2 <- subset(p2, !is.na(Comunidade))
 
-local<-reshape2::dcast(p2, Distrito ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
+local<-reshape2::dcast(p2, Instituição ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
 local=data.frame(local,row.names=1)
 ```
 E vamos aos cálculos;
@@ -285,7 +286,50 @@ ggplot(local, aes(x = reorder(Família, S), y = S)) +
         coord_flip() + theme_classic() 
 #ggsave("fam.png",width = 9, height = 7, dpi = 600)
 ```
+### Distribuição Temporal
 
+Vamos ver a riqueza de dados ao passar dos anos. Essa riqueza pode ser de:
+
+- Família;
+- Distrito.
+
+Primeiro vamos separar a tabela.
+```
+p2 <- planilhatotal
+p2 <- subset(p2, Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro")
+p2 <- subset(p2, !is.na(Espécie))
+p2 <- subset(p2, !is.na(Ano))
+
+p2 <- subset(p2,Distrito!="Identificar") 
+p2 <- subset(p2,Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro") 
+
+local<-reshape2::dcast(p2, Ano ~ Família) 
+local=data.frame(local, row.names=1)
+```
+Agora vamos ver alguns índices simples, como abundância e riqueza:
+```
+abund<-rowSums(local) #abunância por faixa
+S <- specnumber(local) 
+```
+E vamos plotar em gráfico:
+```
+local<-reshape2::dcast(p2, Ano ~ Família)
+
+local<-data.frame(S,abund,local)
+ggplot(local, aes(x = Ano, y = S)) + 
+  geom_point(aes(size=abund, colour = S), alpha = 0.4) + 
+  geom_line(aes(colour = S), size = 2, alpha = 0.35) +
+  scale_size_binned(range = c(.1, 16), name = "Número de álbuns") +
+  #scale_y_continuous(breaks = c(1900, 1920, 1940, 1960, 1980, 2000, 2200)) +
+  #scale_x_continuous(breaks = c(10, 20, 40, 60, 80)) +
+  geom_label_repel(aes(label = abund), size=4, alpha= 1,box.padding   = 0.35,point.padding = 0.75,segment.color = 'grey50') +
+  labs(title="Família por ano", subtitle="Abundância de Registros",y="",x="Ano", caption="",color = "Riqueza por ano",size = "") +
+  theme(axis.title = element_text(size = 18), axis.text = element_text(size = 14))+
+  theme_classic()
+#ggsave("2.Ano_count.png",width = 17, height = 8, dpi = 600)
+```
 ### Gráficos laterais
 Vamos a outro gráfico lateral:
 Primeiro o pacote. 
@@ -295,12 +339,20 @@ pacman::p_load(ggside, tidyverse,tidyquant,ggExtraPlot)
 Agora o gráfico, considerando a abundância:
 ```
 p2 <- planilhatotal
+p2 <- subset(p2, Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro")
 p2 <- subset(p2, !is.na(Espécie))
 p2 <- subset(p2, !is.na(Ano))
+
+
+p2 <- subset(p2,Distrito!="Identificar") 
+p2 <- subset(p2,Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro") 
+
 p2 <- subset(p2, !is.na(Coletor_tag))
 
 p4 <- p2 %>%
-  ggplot(aes(x = Ano, y = Coletor_tag, colour = Coletor_tag)) +
+  ggplot(aes(x = Ano, y = Instituição, colour = Coletor_tag)) +
   geom_boxplot() +
   geom_smooth(aes(color = NULL), se=TRUE) +
   geom_xsidedensity(aes(y = after_stat(scaled), 
@@ -309,7 +361,7 @@ p4 <- p2 %>%
   scale_fill_tq() +
   theme_tq() +
   labs(title = "Boxplot temporal para o coletor", subtitle = "Acumulação",
-       x = "Tempo", y = "Coletores") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
+       x = "Tempo", y = "instituição", colour = "Coletores", fill = "Coletores") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
 plot(p4)
 #ggsave("overlap.png",width = 12, height = 8, dpi = 600)
 #geom_ysidedensity(aes(x = after_stat(density),
@@ -324,16 +376,16 @@ p2 <- subset(p2, !is.na(Coletor_tag))
 p2 <- subset(p2,Ordem!="Perissodactyla") 
 
 p4 <- p2 %>%
-  ggplot(aes(x = Ano, y = Classe, colour = Coletor_tag)) +
+  ggplot(aes(x = Ano, y = Classe, colour = Instituição)) +
   #geom_boxplot() +
   geom_smooth(aes(color = NULL), se=TRUE) +
   stat_density(aes(y = after_stat(scaled),
-    fill = Coletor_tag),alpha = 1,size = 1, position = "stack") +
+    fill = Instituição),alpha = 1,size = 1, position = "stack") +
   scale_color_tq() +
   scale_fill_tq() +
   theme_tq() +
   labs(title = "Boxplot temporal para o coletor", subtitle = "Acumulação",
-       x = "Tempo", y = "Coletores") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
+       x = "Tempo", y = "Instituição") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
 plot(p4)
 
 #ggsave("overlap2.png",width = 12, height = 8, dpi = 600)
@@ -342,14 +394,22 @@ Agora com as famílias:
 
 ```
 p2 <- planilhatotal
+p2 <- subset(p2, Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro")
 p2 <- subset(p2, !is.na(Espécie))
 p2 <- subset(p2, !is.na(Ano))
+
+
+p2 <- subset(p2,Distrito!="Identificar") 
+p2 <- subset(p2,Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro") 
+
 p2 <- subset(p2, !is.na(Coletor_tag))
 p2 <- subset(p2,Ordem!="Perissodactyla") 
 
 p4 <- p2 %>%
-  ggplot(aes(x = Ano, y = Coletor_tag, Colour = Ordem, fill = Ordem)) +
-  geom_boxplot(aes(fill = Ordem)) +
+  ggplot(aes(x = Ano, y = Instituição, Colour = Ordem, fill = Ordem)) +
+  geom_boxplot(aes(fill = Ordem, colour = Ordem), alpha = 0.6) +
   geom_xsidedensity(aes(y = after_stat(scaled), 
     fill = Ordem, colour = Ordem), size = 1, position = "stack") + #alpha = 0.5,
   scale_color_tq() +
@@ -358,7 +418,7 @@ p4 <- p2 %>%
   labs(title = "Boxplot temporal para o coletor", subtitle = "Acumulação",
        x = "Tempo", y = "Ordem") +  theme(ggside.panel.scale.x = 0.2, ggside.panel.scale.y = 0.2)
 plot(p4)
-#ggsave("ovfam.png",width = 12, height = 8, dpi = 600)
+#ggsave("ovfam.png",width = 17, height = 8, dpi = 600)
 #geom_ysidedensity(aes(x = after_stat(density),
     #fill = Order),alpha = 0.5,size = 1, position = "stack") +
 ```
@@ -386,13 +446,86 @@ plot(p4)
 #ggsave("overlap2.png",width = 12, height = 8, dpi = 600)
 ```
 
+## Análise de Variância
+Primeiro a tabela
+```
+p2 <- planilhatotal
+p2 <- subset(p2, Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro")
+p2 <- subset(p2, !is.na(Espécie))
+p2 <- subset(p2, !is.na(Ano))
 
+p2 <- subset(p2,Distrito!="Identificar") 
+p2 <- subset(p2,Ponto!="Fora") 
+p2 <- subset(p2, OBS == "Dentro") 
+```
+A Análise de Variância (ANOVA) trata-se de um método estatı́stico que permite realizar comparações simultâneas entre duas ou mais médias, ou seja, permite testar hipóteses sobre médias de distintas populações. Pressuposto: 
+- Todas as observações devem ser independentes; 
+- As observações em cada grupo devem possuir uma distribuição, aproximadamente normal; 
+- As variâncias em cada grupo devem ser aproximadamente iguais.
 
+Importante se atentar:
+- Relação de espécie (variável dependente);
+- #h0 = não variável/ F= diferença das médias / a variação de altitude média por espécie é de 1310m
+```
+pacman::p_load(tidyverse, FSA, emmeans)
 
+dicalt <- lm(Data$Data ~ Data$Espécie, data = Data) 
+anova(dicalt) 
+```
+Dando valor de p siginificativo os dados são considerados variados. Para ver com mais detalhes:
 
+`summary(dicalt)`
 
+Onde R = explicação (mais perto de 1 melhor) e p significativo, pelo menos um dos anos se comporta de forma diferente. Para as variáveis de confiança:
 
+`confint(dicalt)`
 
+E a variãncia para a assembléia de espécies:
+
+`summary(aov(Data$Ano ~ factor(Data$Espécie)))`
+
+Também vamos ver a relação deles com a altitude. Primeiro os pacotes:
+```
+require(jtools,rpart,vegan)
+pacman::p_load(jtools, sandwich, lme4, ggstance)
+```
+Agora o gráfico para as espécies.
+```
+b<-glm(Ano ~ Ordem, data = Data)
+jtools::plot_summs(b)
+plot_summs(b, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
+```
+E para os coletores (Coletor_tag) ou Comunidade/Distrito:
+```
+fit <- lm(Ano ~ Ordem, data = Data) #some os primeiros de cada grupo
+summ(fit)
+effect_plot(fit, pred = Order, interval = TRUE, plot.points = TRUE) #não faz sentido
+plot_summs(fit, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
+```
+
+### Normalidade
+Teste de significância CRD (CV, Shapiro-Wilk, Homogenety, Tukey) com o pacote #Expdes - pacote de análise, normalidade, Turkey, shapiro-wilk e afins, onde as tabelas tem que ser iguais.
+```
+pacman::p_load(ExpDes, ExpDes.pt, fitdistrplus) 
+crd(p2$Espécie, p2$Ano, mcomp = "tukey", sigF = 0.01, sigT = 0.01)
+```
+Não foi considerado normal,homocedástico,Tukey deu todos diferentes (ele separou as localidades, talvez usar). Vamos ver em um gráfico:
+```
+pacman::p_load(fitdistrplus) #análise de normalidade
+shapiro.test(p2$Ano) #ho-normal / dados não normal
+descdist(p2$Ano, boot = 500, discrete = F, graph = T) #distribuição normal
+```
+E os gráficos de QQ e outros:
+```
+fit.MF.normal <- fitdist(p2$Ano, "norm") #gráfico de distribuição normal / Altitude distribuição normal
+plot(fit.MF.normal, demp = TRUE)
+denscomp(fit.MF.normal, addlegend=TRUE)
+#ppcomp(fit.MF.normal, addlegend=FALSE)
+#qqcomp(fit.MF.normal, addlegend=FALSE)
+```
+
+############ 
 
 ### Gif
 
@@ -527,70 +660,6 @@ dados.clip %>%
   subset(Richness >= 0) %$% #escolher a partir dos dados (relação de alt com as anos)
   cor.test(Richness, Sampling.Effort) # 0- baixa xorrelação / 1- alta correlação
 
-```
-## Análise de Variância
-A Análise de Variância (ANOVA) trata-se de um método estatı́stico que permite realizar comparações simultâneas entre duas ou mais médias, ou seja, permite testar hipóteses sobre médias de distintas populações. Pressuposto: 
-- Todas as observações devem ser independentes; 
-- As observações em cada grupo devem possuir uma distribuição, aproximadamente normal; 
-- As variâncias em cada grupo devem ser aproximadamente iguais.
-
-Importante se atentar:
-- Relação de espécie (variável dependente);
-- #h0 = não variável/ F= diferença das médias / a variação de altitude média por espécie é de 1310m
-```
-dicalt <- lm(Data$Data ~ p2$Espécie, data = Data) 
-anova(dicalt) 
-```
-Dando valor de p siginificativo os dados são considerados variados. Para ver com mais detalhes:
-
-`summary(dicalt)`
-
-Onde R = explicação (mais perto de 1 melhor) e p significativo, pelo menos um dos anos se comporta de forma diferente. Para as variáveis de confiança:
-
-`confint(dicalt)`
-
-E a variãncia para a assembléia de espécies:
-
-`summary(aov(Data$Ano ~ factor(Data$Espécie)))`
-
-Também vamos ver a relação deles com a altitude. Primeiro os pacotes:
-```
-require(jtools,rpart,vegan)
-pacman::p_load(jtools, sandwich, lme4, ggstance)
-```
-Agora o gráfico para as espécies.
-```
-b<-glm(Ano ~ Ordem, data = Data)
-jtools::plot_summs(b)
-plot_summs(b, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
-```
-E para os coletores (Coletor_tag) ou Comunidade/Distrito:
-```
-fit <- lm(Ano ~ Ordem, data = Data) #some os primeiros de cada grupo
-summ(fit)
-effect_plot(fit, pred = Order, interval = TRUE, plot.points = TRUE) #não faz sentido
-plot_summs(fit, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
-```
-
-### Normalidade
-Teste de significância CRD (CV, Shapiro-Wilk, Homogenety, Tukey) com o pacote #Expdes - pacote de análise, normalidade, Turkey, shapiro-wilk e afins, onde as tabelas tem que ser iguais.
-```
-pacman::p_load(ExpDes, ExpDes.pt, fitdistrplus) 
-crd(p2$Espécie, p2$Ano, mcomp = "tukey", sigF = 0.01, sigT = 0.01)
-```
-Não foi considerado normal,homocedástico,Tukey deu todos diferentes (ele separou as localidades, talvez usar). Vamos ver em um gráfico:
-```
-pacman::p_load(fitdistrplus) #análise de normalidade
-shapiro.test(p2$Ano) #ho-normal / dados não normal
-descdist(p2$Ano, boot = 500, discrete = F, graph = T) #distribuição normal
-```
-E os gráficos de QQ e outros:
-```
-fit.MF.normal <- fitdist(p2$Ano, "norm") #gráfico de distribuição normal / Altitude distribuição normal
-plot(fit.MF.normal, demp = TRUE)
-denscomp(fit.MF.normal, addlegend=TRUE)
-#ppcomp(fit.MF.normal, addlegend=FALSE)
-#qqcomp(fit.MF.normal, addlegend=FALSE)
 ```
 
 
