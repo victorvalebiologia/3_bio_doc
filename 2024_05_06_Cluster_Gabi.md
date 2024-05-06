@@ -4,6 +4,7 @@ Oi Gabi. Aqui vai um script detalhado do que vamos fazer certinho para o cluster
 
 - 1. Preparar o dados;
 - 2. Agrupamento de cluster de Jaccard;
+- 3. PAE
 
 ## 1. Preparar os dados
 #### Informar o R
@@ -46,7 +47,7 @@ Depois vamos selecionar os dados que queremos. Vou deixar só os que estão no m
 
 `p2 <- subset(p2, Município == "Santa Teresa")`
 
-Aqui tiramos as células N/A ou vazias das colunas de dia, ordem e espécie.
+Aqui tiramos as células NA ou vazias das colunas de dia, ordem e espécie.
 ```
 p2 <- subset(p2, !is.na(Dia))
 p2 <- subset(p2, !is.na(Ordem)) 
@@ -74,7 +75,7 @@ Bom, alguns locais não possuem dados de Comunidade, então vamos tirar da tabel
 
 `p2 <- subset(p2, !is.na(Comunidade))`
 
-Rodei de novo e deu certo, então vamos seguir,
+Rodei de novo e deucerto, entçao vamos seguir,
 
 ## 2. Similaridade
 ### Cluster para definir os grupos de comunidade
@@ -103,3 +104,31 @@ plot(hc, labels = local$Altitude)
 dev.off()
 
 ```
+### PAE
+
+PAE (Parsimony Analysis of Endemicity): É uma técnica usada na biogeografia para identificar áreas de endemismo com base na distribuição de espécies. Ela busca identificar conjuntos de áreas geográficas que compartilham espécies endêmicas exclusivas, minimizando a duplicação de áreas compartilhadas por diferentes grupos de espécies.
+
+Para funcionar vamos precisar do Vegan. E de montar nossa tabela
+
+```
+pacman::p_load("vegan")
+local<-reshape2::dcast(p2, Comunidade ~ Espécie, value.var = "Abundância",fun.aggregate = sum)
+local=data.frame(local, row.names=1)
+
+```
+Agora o agruapador
+```
+dist_jaccard <- as.dist(1 - vegdist(local, method = "jaccard"))
+cluster_result <- hclust(dist_jaccard, method = "complete")
+```
+
+Agora plotar o agrupamento hierárquico
+
+```
+plot(cluster_result, main = "Dendrograma Hierárquico", xlab = "Localidades", ylab = "Distância de Jaccard")
+cut_result <- cutree(cluster_result, k = 3)  # Altere k conforme necessário
+
+print(cut_result)
+```
+
+
