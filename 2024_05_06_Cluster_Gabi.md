@@ -46,7 +46,7 @@ Depois vamos selecionar os dados que queremos. Vou deixar só os que estão no m
 
 `p2 <- subset(p2, Município == "Santa Teresa")`
 
-Aqui tiramos as células NA ou vazias das colunas de dia, ordem e espécie.
+Aqui tiramos as células N/A ou vazias das colunas de dia, ordem e espécie.
 ```
 p2 <- subset(p2, !is.na(Dia))
 p2 <- subset(p2, !is.na(Ordem)) 
@@ -74,7 +74,7 @@ Bom, alguns locais não possuem dados de Comunidade, então vamos tirar da tabel
 
 `p2 <- subset(p2, !is.na(Comunidade))`
 
-Rodei de novo e deucerto, entçao vamos seguir,
+Rodei de novo e deu certo, então vamos seguir,
 
 ## 2. Similaridade
 ### Cluster para definir os grupos de comunidade
