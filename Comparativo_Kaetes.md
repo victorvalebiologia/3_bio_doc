@@ -89,41 +89,55 @@ plot(acumplot,ci.type="poly",col="black",lwd=2,ci.lty=0,
 Vamos plotar uma imagem para a diversidade
 
 ```
-local<-reshape2::dcast(p2, Família ~ Espécie)
-local=data.frame(local,row.names=1)
-```
-E vamos aos cálculos;
-```
-S <- specnumber(local) 
-spAbund <-rowSums(local) #abunância por faixa
-shannon <- diversity(local)
-J <- shannon/log(S) #Pielou
-simp <- diversity(local, "simpson")
-invsimp <- diversity(local, "inv")
-```
-E vamos plotar em gráfico, mas primeiro a tabela.
-```
-local<-reshape2::dcast(p2, Família + Ordem ~ Espécie)
-local<-data.frame(S, spAbund, shannon,J, local)
-```
-E agora o gráfico. Lembrar de verificar:
-- Se a variável está em colour de geom_point;
-- No subtitle de labs.
-- No caso de família, trocar o y para S e x para Família.
+library(dplyr)
+library(reshape2)
+library(vegan)
 
-Um outro exemplo de gráfico é um de barras:
-```
-ggplot(local, aes(x = reorder(Família, S), y = S)) + 
-  geom_col(aes(weight = S, fill = Ordem), alpha = 0.7) + 
-  #geom_point(aes(y = S, x = Família, size = spAbund, colour = Ordem), alpha = 0.7) +
-  geom_label(aes(y = S, x = Família, label = S), size=4, alpha= 1) +
-  #facet_grid(Ordem~., scales = "free_y", space = "free_y") + 
-  labs(title="Riqueza e diversidade", subtitle="Diversidade", y="Riqueza", x="Família", caption="Dados primários", fill = "Ordem", colour = "Ordem", size = "Riqueza") +
-  scale_size_binned(range = c(.1, 18)) +
-  theme(axis.title = element_text(size = 18), 
-        axis.text = element_text(size = 14)) + 
-        coord_flip() + 
-        #scale_color_tq() + scale_fill_tq() +
-        theme_tq()         
-        
+# 1. Criar a matriz de comunidade UC x Espécie
+comm_matrix <- reshape2::dcast(p2, UC ~ Espécie, value.var = "Registro", fun.aggregate = sum)
+
+# 2. Calcular riqueza total por UC (S_uc)
+S_uc <- vegan::specnumber(comm_matrix[, -1])  # Exclui a coluna UC
+names(S_uc) <- comm_matrix$UC  # Nomeia os valores com as UCs
+
+# 3. Criar e calcular a riqueza por UC + Ordem
+local_ordem <- reshape2::dcast(p2, UC + Ordem ~ Espécie, value.var = "Registro", fun.aggregate = sum)
+
+S_ordem <- local_ordem %>% 
+  group_by(UC, Ordem) %>%
+  summarise(
+    S = vegan::specnumber(across(where(is.numeric))),
+    .groups = "drop"
+  )
+
+# 4. Juntar os dados
+final_df <- S_ordem %>%
+  left_join(
+    data.frame(UC = names(S_uc), S_total = S_uc),
+    by = "UC"
+  )
+
+# Verifique o resultado
+head(final_df)
+  
+
+ggplot(final_df, aes(x = reorder(UC, S_total), y = S, fill = Ordem)) +  # Note que usamos "S" em vez de "S_por_Ordem"
+  geom_col(position = "stack", width = 0.8) +
+  geom_label(
+    aes(label = ifelse(S > 0, S, "")),  # Aqui também usamos "S"
+    position = position_stack(vjust = 0.5),
+    color = "white",
+    size = 3.5
+  ) +
+  labs(
+    x = "Unidade de Conservação",
+    y = "Riqueza de Espécies (S)",
+    fill = "Ordem Taxonômica",
+    title = "Riqueza por UC e Ordem"
+  ) +
+  scale_fill_viridis_d() +
+  theme_minimal() +
+  coord_flip()
+  
+  
 #ggsave("2025_diversidade.pdf",width = 10, height = 8, dpi = 600)
